@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Próximos Autobuses - Línea 482</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="theme-buses">
+    <div class="bg-glow"></div>
+    
+    <header>
+        <div class="title-container">
+            <div class="line-badge" style="font-size: 2.5rem; padding: 10px 20px;">482</div>
+            <div>
+                <h1 class="station-name">Estación Renfe</h1>
+                <p class="subtitle">Próximos autobuses Interurbanos CRTM</p>
+            </div>
+        </div>
+        <div class="clock" id="clock">00:00</div>
+    </header>
+
+    <div class="table-header">
+        <div>Hora</div>
+        <div>Destino</div>
+        <div style="text-align: right;">Llegada</div>
+    </div>
+
+    <main class="main-content" id="buses-container">
+        <!-- Rows will be injected here via JS -->
+    </main>
+
+    <footer>
+        <div id="status-msg">Actualizando...</div>
+        <div id="last-update">Última actualización: --:--</div>
+    </footer>
+
+    <script src="js/buses.js"></script>
+</body>
+</html>
