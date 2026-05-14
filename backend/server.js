@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,14 +34,44 @@ function getUpcomingTimes(count, intervalMinutes = 15) {
 // ENDPOINT: TRENES (C5 - Parque Polvoranca)
 // ==========================================
 async function fetchRealRenfeData() {
-    // Aquí iría la lógica de extracción de tiempo real de Cercanías Renfe.
-    // Dado que Renfe no tiene una API JSON pública sin autenticación, 
-    // habitualmente se requiere leer de un feed GTFS-RT o hacer scraping a su visor web.
-    // Si tuvieras acceso a su feed, harías algo como:
-    // const response = await axios.get('URL_GTFS_RENFE');
-    // return parseGtfs(response.data);
+    // 5_105 is Parque Polvoranca in CRTM's database
+    const codStop = '5_105'; 
+    const url = `https://crtm.es/widgets/api/GetStopsTimes.php?codStop=${codStop}&type=1&orderBy=2&stopTimesByIti=3`;
     
-    throw new Error("Conexión oficial de Renfe no configurada aún.");
+    const response = await axios.get(url, { timeout: 10000 });
+    const data = response.data;
+    
+    if (!data || !data.stopTimes) {
+        throw new Error("Respuesta inválida de la API oficial (Trenes)");
+    }
+    
+    let times = [];
+    const timesData = data.stopTimes.times?.Time;
+    
+    if (timesData) {
+        const timeArray = Array.isArray(timesData) ? timesData : [timesData];
+        times = timeArray.map(t => {
+            const dateObj = new Date(t.time);
+            const diffMs = dateObj - new Date();
+            const diffMins = Math.max(0, Math.floor(diffMs / 60000));
+            
+            return {
+                time: dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+                destination: t.destination,
+                line: t.line.shortDescription || "C5",
+                platform: "-", // CRTM API does not typically provide platform numbers
+                minutes: diffMins
+            };
+        });
+    }
+    
+    times.sort((a, b) => a.minutes - b.minutes);
+    
+    if (times.length === 0) {
+        throw new Error("No hay trenes programados en este momento");
+    }
+    
+    return times;
 }
 
 app.get('/api/trenes', async (req, res) => {
@@ -84,12 +115,43 @@ app.get('/api/trenes', async (req, res) => {
 // ENDPOINT: AUTOBUSES (Línea 482 - Leganés)
 // ==========================================
 async function fetchRealCRTMData() {
-    // Aquí iría la lógica para consumir el portal de Datos Abiertos del CRTM o su widget.
-    // La librería @dubisdev/crtm-api o llamadas directas a sus webservices requieren
-    // un ID de parada específico (ej. 07573) y sufren cambios de esquema frecuentes.
-    // const response = await axios.get('API_CRTM_TIEMPO_REAL?stop=07573');
+    // 8_15597 is Alcalde Fco. Moreno - Est. Parque Polvoranca
+    const codStop = '8_15597'; 
+    const url = `https://crtm.es/widgets/api/GetStopsTimes.php?codStop=${codStop}&type=1&orderBy=2&stopTimesByIti=3`;
     
-    throw new Error("Conexión oficial del CRTM no configurada aún.");
+    const response = await axios.get(url, { timeout: 10000 });
+    const data = response.data;
+    
+    if (!data || !data.stopTimes) {
+        throw new Error("Respuesta inválida de la API oficial (Buses)");
+    }
+    
+    let times = [];
+    const timesData = data.stopTimes.times?.Time;
+    
+    if (timesData) {
+        const timeArray = Array.isArray(timesData) ? timesData : [timesData];
+        times = timeArray.map(t => {
+            const dateObj = new Date(t.time);
+            const diffMs = dateObj - new Date();
+            const diffMins = Math.max(0, Math.floor(diffMs / 60000));
+            
+            return {
+                time: dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+                destination: t.destination,
+                line: t.line.shortDescription || "Bus",
+                minutes: diffMins
+            };
+        });
+    }
+    
+    times.sort((a, b) => a.minutes - b.minutes);
+    
+    if (times.length === 0) {
+        throw new Error("No hay autobuses programados en este momento");
+    }
+    
+    return times;
 }
 
 app.get('/api/buses', async (req, res) => {
@@ -99,7 +161,7 @@ app.get('/api/buses', async (req, res) => {
         
         res.json({
             stop: "Estación Renfe",
-            line: "482",
+            line: "Varias",
             updatedAt: new Date().toISOString(),
             buses: buses,
             mode: "real"
@@ -109,16 +171,16 @@ app.get('/api/buses', async (req, res) => {
         console.warn("Aviso: Usando datos simulados de buses (" + error.message + ")");
         
         const schedule = getUpcomingTimes(5, 20);
-        const fallbackBuses = schedule.map(t => ({
+        const fallbackBuses = schedule.map((t, index) => ({
             time: t.time,
-            destination: "Madrid (Aluche)",
-            line: "482",
+            destination: index % 2 === 0 ? "Madrid (Aluche)" : "Leganés",
+            line: index % 2 === 0 ? "482" : "486",
             minutes: t.minutes
         }));
 
         res.json({
             stop: "Estación Renfe",
-            line: "482",
+            line: "Varias",
             updatedAt: new Date().toISOString(),
             buses: fallbackBuses,
             mode: "simulated"
