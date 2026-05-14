@@ -1,0 +1,1 @@
+const axios = require('axios'); const cheerio = require('cheerio'); axios.get('https://horarios.renfe.com/CER/hjcer300.jsp?CP=NO&NUCLEO=10&O=35011&D=18000').then(r=>{const $ = cheerio.load(r.data); console.log(table.text().substring(0, 500));}).catch(console.error);  
