@@ -40,6 +40,7 @@ async function fetchBuses() {
                 }
                 
                 row.innerHTML = `
+                    <div class="line-col"><span class="small-badge">${bus.line}</span></div>
                     <div class="time-col">${bus.time}</div>
                     <div class="dest-col">${bus.destination}</div>
                     <div class="status-col">
