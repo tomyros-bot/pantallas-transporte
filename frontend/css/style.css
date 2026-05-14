@@ -114,7 +114,7 @@ header {
 
 .table-header {
     display: grid;
-    grid-template-columns: 2fr 4fr 1.5fr;
+    grid-template-columns: 1.5fr 2fr 4fr 1.5fr;
     padding: 0 40px;
     color: var(--text-muted);
     font-size: 1.5rem;
@@ -125,7 +125,7 @@ header {
 
 .departure-row {
     display: grid;
-    grid-template-columns: 2fr 4fr 1.5fr;
+    grid-template-columns: 1.5fr 2fr 4fr 1.5fr;
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 24px;
@@ -170,6 +170,22 @@ header {
     font-family: 'Outfit', sans-serif;
     font-size: 3.5rem;
     font-weight: 700;
+}
+
+.line-col {
+    display: flex;
+    align-items: center;
+}
+
+.small-badge {
+    background-color: var(--accent);
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    padding: 8px 20px;
+    border-radius: 12px;
+    display: inline-block;
 }
 
 .dest-col {
