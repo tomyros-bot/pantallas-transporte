@@ -21,7 +21,7 @@ function getUpcomingTimes(count, intervalMinutes = 15) {
         d.setMinutes(d.getMinutes() + currentMinOffset);
         
         times.push({
-            time: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+            time: d.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }),
             minutes: currentMinOffset
         });
         
@@ -50,13 +50,16 @@ async function fetchRealRenfeData() {
     
     if (timesData) {
         const timeArray = Array.isArray(timesData) ? timesData : [timesData];
-        times = timeArray.map(t => {
+        times = timeArray.filter(t => {
+            const diffMs = new Date(t.time) - new Date();
+            return diffMs > -60000; // Only show trains that haven't departed more than 1 minute ago
+        }).map(t => {
             const dateObj = new Date(t.time);
             const diffMs = dateObj - new Date();
             const diffMins = Math.max(0, Math.floor(diffMs / 60000));
             
             return {
-                time: dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+                time: dateObj.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }),
                 destination: t.destination,
                 line: t.line.shortDescription || "C5",
                 platform: "-", // CRTM API does not typically provide platform numbers
@@ -115,34 +118,43 @@ app.get('/api/trenes', async (req, res) => {
 // ENDPOINT: AUTOBUSES (Línea 482 - Leganés)
 // ==========================================
 async function fetchRealCRTMData() {
-    // 8_15597 is Alcalde Fco. Moreno - Est. Parque Polvoranca
-    const codStop = '8_15597'; 
-    const url = `https://crtm.es/widgets/api/GetStopsTimes.php?codStop=${codStop}&type=1&orderBy=2&stopTimesByIti=3`;
+    // Group multiple nearby stops around Parque Polvoranca to show more lines (482, 486, etc.)
+    const codStops = ['8_15597', '8_08212', '8_08213']; 
     
-    const response = await axios.get(url, { timeout: 10000 });
-    const data = response.data;
+    const promises = codStops.map(codStop => {
+        const url = `https://crtm.es/widgets/api/GetStopsTimes.php?codStop=${codStop}&type=1&orderBy=2&stopTimesByIti=3`;
+        return axios.get(url, { timeout: 10000 }).then(res => res.data);
+    });
     
-    if (!data || !data.stopTimes) {
-        throw new Error("Respuesta inválida de la API oficial (Buses)");
-    }
+    const results = await Promise.allSettled(promises);
     
     let times = [];
-    const timesData = data.stopTimes.times?.Time;
     
-    if (timesData) {
-        const timeArray = Array.isArray(timesData) ? timesData : [timesData];
-        times = timeArray.map(t => {
-            const dateObj = new Date(t.time);
-            const diffMs = dateObj - new Date();
-            const diffMins = Math.max(0, Math.floor(diffMs / 60000));
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value && result.value.stopTimes) {
+            const timesData = result.value.stopTimes.times?.Time;
             
-            return {
-                time: dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-                destination: t.destination,
-                line: t.line.shortDescription || "Bus",
-                minutes: diffMins
-            };
-        });
+            if (timesData) {
+                const timeArray = Array.isArray(timesData) ? timesData : [timesData];
+                
+                timeArray.forEach(t => {
+                    const dateObj = new Date(t.time);
+                    const diffMs = dateObj - new Date();
+                    
+                    // Only show buses that haven't departed more than 1 minute ago
+                    if (diffMs > -60000) {
+                        const diffMins = Math.max(0, Math.floor(diffMs / 60000));
+                        
+                        times.push({
+                            time: dateObj.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }),
+                            destination: t.destination,
+                            line: t.line.shortDescription || "Bus",
+                            minutes: diffMins
+                        });
+                    }
+                });
+            }
+        }
     }
     
     times.sort((a, b) => a.minutes - b.minutes);
